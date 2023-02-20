@@ -84,6 +84,7 @@ class ABCImport(QDialog):
         self.__abcs = []
         self.__selected_abcs = []
 
+        self.__retrieve_current_project_dir()
         self.__retrieve_abcs()
 
         # UI attributes
@@ -93,7 +94,6 @@ class ABCImport(QDialog):
         self.__ui_min_height = 250
         self.__ui_pos = QDesktopWidget().availableGeometry().center() - QPoint(self.__ui_width, self.__ui_height) / 2
 
-        self.__retrieve_current_project_dir()
         self.__retrieve_prefs()
 
         # name the window
@@ -308,6 +308,7 @@ class ABCImport(QDialog):
                 action_btn = QPushButton("Update")
                 action_btn.setStyleSheet("margin:3px")
                 action_btn.clicked.connect(partial(self.__on_click_update_uvs_shaders, abc))
+                action_btn.setEnabled(not abc.check_up_to_date())
                 self.__ui_abcs_table.setCellWidget(row_index, 4, action_btn)
 
             row_index += 1
@@ -350,7 +351,7 @@ class ABCImport(QDialog):
         abc.set_import_version(version_path)
 
     def __on_click_update_uvs_shaders(self, abc):
-        standin_node = abc.update_uvs_shaders(self.__current_project_dir)
+        standin_node = abc.update()
         select(standin_node)
 
     def __retrieve_abcs(self):
@@ -358,11 +359,12 @@ class ABCImport(QDialog):
         if os.path.exists(self.__folder_path):
             if ABCImport.__is_parent_abc_folder(self.__folder_path):
                 self.__retrieve_assets(os.path.join(self.__folder_path, "abc"), True)
-                self.__retrieve_assets(os.path.join(self.__folder_path, "abc_fur"), False)
+                # self.__retrieve_assets(os.path.join(self.__folder_path, "abc_fur"), False)
             elif ABCImport.__is_abc_folder(self.__folder_path):
                 self.__retrieve_assets(self.__folder_path, True)
             elif ABCImport.__is_abc_fur_folder(self.__folder_path):
-                self.__retrieve_assets(self.__folder_path, False)
+                pass
+                # self.__retrieve_assets(self.__folder_path, False)
         self.__retrieve_assets_in_scene()
 
     def __retrieve_assets(self, folder_path, is_anim_folder):
@@ -376,9 +378,9 @@ class ABCImport(QDialog):
                         if asset_folder + ".abc" in os.listdir(version_folder_path):
                             anim_versions.append(version_folder_path)
                 if is_anim_folder:
-                    asset = ABCImportAnim(asset_folder, anim_versions)
+                    asset = ABCImportAnim(asset_folder, anim_versions, self.__current_project_dir)
                 else:
-                    asset = ABCImportFur(asset_folder, anim_versions)
+                    asset = ABCImportFur(asset_folder, anim_versions, self.__current_project_dir)
                 self.__abcs.append(asset)
 
     def __retrieve_assets_in_scene(self):
@@ -389,9 +391,12 @@ class ABCImport(QDialog):
             abc_layer = standin_node.abc_layers.get()
             if abc_layer is not None:
                 abc_layer = abc_layer.replace("\\","/")
-                match = re.match(r".*/(.*)/([0-9]{4})/.*_[0-9]{2}\.abc", abc_layer, re.IGNORECASE)
+                match = re.match(r".*/(.*)/(.*)/([0-9]{4})/.*_[0-9]{2}\.abc", abc_layer, re.IGNORECASE)
                 if match:
-                    standins_datas[match.groups()[0]] = (standin, match.groups()[1])
+                    name = match.groups()[1]
+                    if match.groups()[0] == "abc_fur":
+                        name+="_fur"
+                    standins_datas[name] = (standin, match.groups()[2])
         for abc in self.__abcs:
             abc_name = abc.get_name()
             if abc_name in standins_datas.keys():
@@ -404,7 +409,7 @@ class ABCImport(QDialog):
     def __import_update_selected_abcs(self):
         standin_nodes = []
         for abc in self.__selected_abcs:
-            standin_nodes.append(abc.import_update_abc(self.__current_project_dir, self.__update_uvs_shaders))
+            standin_nodes.append(abc.import_update_abc(self.__update_uvs_shaders))
         select(standin_nodes)
         self.__retrieve_assets_in_scene()
         self.__refresh_ui()
