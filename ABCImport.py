@@ -79,7 +79,7 @@ class ABCImport(QDialog):
         self.__prefs = Prefs(_FILE_NAME_PREFS)
 
         # Model attributes
-        self.__folder_path = "C:/Users/m.jenin/Documents/marius/abc_import"
+        self.__folder_path = ""
         self.__update_uvs_shaders = True
         self.__abcs = []
         self.__selected_abcs = []
