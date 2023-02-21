@@ -56,11 +56,11 @@ class ABCImport(QDialog):
 
     @staticmethod
     def __is_abc_folder(folder):
-        return re.match(r".*/abc(?:/|\\)?$", folder)
+        return re.match(r".*[/\\]abc[/\\]?$", folder)
 
     @staticmethod
     def __is_abc_fur_folder(folder):
-        return re.match(r".*/abc_fur(?:/|\\)?$", folder)
+        return re.match(r".*[/\\]abc_fur[/\\]?$", folder)
 
     @staticmethod
     def __is_parent_abc_folder(folder):
@@ -79,7 +79,7 @@ class ABCImport(QDialog):
         self.__prefs = Prefs(_FILE_NAME_PREFS)
 
         # Model attributes
-        self.__folder_path = ""
+        self.__folder_path = "C:/Users/m.jenin/Documents/marius/abc_import"
         self.__update_uvs_shaders = True
         self.__abcs = []
         self.__selected_abcs = []
@@ -226,11 +226,10 @@ class ABCImport(QDialog):
         self.__ui_import_btn.setToolTip(tooltip)
 
     def __refresh_table(self):
-        valid_icon_path = os.path.dirname(__file__) + "/assets/valid.png"
-        warning_icon_path = os.path.dirname(__file__) + "/assets/warning.png"
-        new_icon_path = os.path.dirname(__file__) + "/assets/new.png"
 
         selected_abcs = [abc.get_name() for abc in self.__selected_abcs]
+
+        asset_dir = os.path.dirname(__file__) + "/assets/"
 
         self.__ui_abcs_table.setRowCount(0)
         row_index = 0
@@ -255,17 +254,17 @@ class ABCImport(QDialog):
                     state = 0
 
             icon_widget = QLabel()
-            icon_widget.setFixedSize(QSize(22, 22))
+            icon_widget.setFixedSize(QSize(25, 25))
             icon_widget.setScaledContents(True)
 
             if state == 0:
-                pixmap = QPixmap(valid_icon_path)
+                pixmap = QPixmap(asset_dir+abc.get_valid_icon_name())
                 tooltip = "Up to date"
             elif state == 1:
-                pixmap = QPixmap(warning_icon_path)
+                pixmap = QPixmap(asset_dir+abc.get_warning_icon_name())
                 tooltip = "Not up to date"
             else:
-                pixmap = QPixmap(new_icon_path)
+                pixmap = QPixmap(asset_dir+abc.get_new_icon_name())
                 tooltip = "New"
             icon_widget.setPixmap(pixmap)
             icon_widget.setToolTip(tooltip)
@@ -359,12 +358,12 @@ class ABCImport(QDialog):
         if os.path.exists(self.__folder_path):
             if ABCImport.__is_parent_abc_folder(self.__folder_path):
                 self.__retrieve_assets(os.path.join(self.__folder_path, "abc"), True)
-                # self.__retrieve_assets(os.path.join(self.__folder_path, "abc_fur"), False)
+                self.__retrieve_assets(os.path.join(self.__folder_path, "abc_fur"), False)
             elif ABCImport.__is_abc_folder(self.__folder_path):
                 self.__retrieve_assets(self.__folder_path, True)
             elif ABCImport.__is_abc_fur_folder(self.__folder_path):
                 pass
-                # self.__retrieve_assets(self.__folder_path, False)
+                self.__retrieve_assets(self.__folder_path, False)
         self.__retrieve_assets_in_scene()
 
     def __retrieve_assets(self, folder_path, is_anim_folder):
@@ -372,16 +371,21 @@ class ABCImport(QDialog):
             for asset_folder in os.listdir(folder_path):
                 asset_folder_path = os.path.join(folder_path, asset_folder)
                 anim_versions = []
-                if os.path.isdir(asset_folder_path):
+                if os.path.isdir(asset_folder_path) and asset_folder[0:2] == "ch":
                     for version_folder in os.listdir(asset_folder_path):
                         version_folder_path = os.path.join(asset_folder_path, version_folder)
-                        if asset_folder + ".abc" in os.listdir(version_folder_path):
-                            anim_versions.append(version_folder_path)
-                if is_anim_folder:
-                    asset = ABCImportAnim(asset_folder, anim_versions, self.__current_project_dir)
-                else:
-                    asset = ABCImportFur(asset_folder, anim_versions, self.__current_project_dir)
-                self.__abcs.append(asset)
+                        if is_anim_folder:
+                            test_file_abc = asset_folder + ".abc"
+                        else:
+                            test_file_abc = asset_folder + "_fur.abc"
+                        if os.path.isdir(version_folder_path):
+                            if test_file_abc in os.listdir(version_folder_path):
+                                anim_versions.append(version_folder_path)
+                    if is_anim_folder:
+                        asset = ABCImportAnim(asset_folder, anim_versions, self.__current_project_dir)
+                    else:
+                        asset = ABCImportFur(asset_folder, anim_versions, self.__current_project_dir)
+                    self.__abcs.append(asset)
 
     def __retrieve_assets_in_scene(self):
         standins = ls(type="aiStandIn")
@@ -389,14 +393,21 @@ class ABCImport(QDialog):
         for standin in standins:
             standin_node = listRelatives(standin, parent=True)[0]
             abc_layer = standin_node.abc_layers.get()
-            if abc_layer is not None:
+            dso = standin.dso.get()
+            added = False
+            if dso is not None:
+                match_dso = re.match(r".*/(.*)/(.*)/([0-9]{4})/.*_[0-9]{2}_fur\.abc", dso, re.IGNORECASE)
+                if match_dso:
+                    name = match_dso.groups()[1]+"_fur"
+                    standins_datas[name] = (standin, match_dso.groups()[2])
+                    added = True
+
+            if abc_layer is not None and not added:
                 abc_layer = abc_layer.replace("\\","/")
-                match = re.match(r".*/(.*)/(.*)/([0-9]{4})/.*_[0-9]{2}\.abc", abc_layer, re.IGNORECASE)
-                if match:
-                    name = match.groups()[1]
-                    if match.groups()[0] == "abc_fur":
-                        name+="_fur"
-                    standins_datas[name] = (standin, match.groups()[2])
+                match_abc_layer = re.match(r".*/(.*)/(.*)/([0-9]{4})/.*_[0-9]{2}\.abc", abc_layer, re.IGNORECASE)
+                if match_abc_layer:
+                    name = match_abc_layer.groups()[1]
+                    standins_datas[name] = (standin, match_abc_layer.groups()[2])
         for abc in self.__abcs:
             abc_name = abc.get_name()
             if abc_name in standins_datas.keys():
