@@ -42,6 +42,7 @@ class ABCImport(QDialog):
             dirname = None
         return dirname
 
+    # Test if a folder is correct to be a container of abcs
     @staticmethod
     def __is_correct_folder(folder):
         if not os.path.exists(folder):
@@ -54,14 +55,17 @@ class ABCImport(QDialog):
             return True
         return False
 
+    # Test whether the folder is an abc folder or not
     @staticmethod
     def __is_abc_folder(folder):
         return re.match(r".*[/\\]abc[/\\]?$", folder)
 
+    # Test whether the folder is an abc_fur folder or not
     @staticmethod
     def __is_abc_fur_folder(folder):
         return re.match(r".*[/\\]abc_fur[/\\]?$", folder)
 
+    # Test whether the folder is a parent of an abc folder or an abc_fur folder or not
     @staticmethod
     def __is_parent_abc_folder(folder):
         for d in os.listdir(folder):
@@ -125,6 +129,7 @@ class ABCImport(QDialog):
             pos = self.__prefs["window_pos"]
             self.__ui_pos = QPoint(pos["x"], pos["y"])
 
+    # On show window create callback
     def showEvent(self, arg__1: QShowEvent) -> None:
         self.__selection_callback = \
             OpenMaya.MEventMessage.addEventCallback("SelectionChanged", self.__on_selection_changed)
@@ -134,6 +139,7 @@ class ABCImport(QDialog):
         OpenMaya.MMessage.removeCallback(self.__selection_callback)
         self.__save_prefs()
 
+    # Retrieve the current project dir specified in the Illogic maya launcher
     def __retrieve_current_project_dir(self):
         self.__current_project_dir = os.getenv("CURRENT_PROJECT_DIR")
         if self.__current_project_dir is None:
@@ -212,6 +218,7 @@ class ABCImport(QDialog):
         self.__refresh_btn()
         self.__refresh_table()
 
+    # Refresh the button import
     def __refresh_btn(self):
         nb_abcs_selected = len(self.__selected_abcs)
         enabled = True
@@ -225,6 +232,7 @@ class ABCImport(QDialog):
         self.__ui_import_btn.setEnabled(enabled)
         self.__ui_import_btn.setToolTip(tooltip)
 
+    # Refresh the table
     def __refresh_table(self):
 
         selected_abcs = [abc.get_name() for abc in self.__selected_abcs]
@@ -235,6 +243,7 @@ class ABCImport(QDialog):
         row_index = 0
         selected_rows = []
         for abc in self.__abcs:
+            # Get model data
             name = abc.get_name()
             anim_versions = abc.get_versions()
             anim_import_version = abc.get_import_version()
@@ -245,27 +254,26 @@ class ABCImport(QDialog):
             if name in selected_abcs:
                 selected_rows.append(row_index)
 
+            # Get if the abc is NEW (2),  Present and out of date (1) or Present and Up to date (0)
             if anim_actual_version is None:
-                state = 2
+                state = ABCState.New
             else:
                 if int(os.path.basename(anim_actual_version)) < int(os.path.basename(anim_versions[0])):
-                    state = 1
+                    state = ABCState.OutOfDate
                 else:
-                    state = 0
+                    state = ABCState.UpToDate
 
+            # Icon State
             icon_widget = QLabel()
             icon_widget.setFixedSize(QSize(25, 25))
             icon_widget.setScaledContents(True)
-
-            if state == 0:
-                pixmap = QPixmap(asset_dir+abc.get_valid_icon_name())
+            if state == ABCState.UpToDate:
                 tooltip = "Up to date"
-            elif state == 1:
-                pixmap = QPixmap(asset_dir+abc.get_warning_icon_name())
-                tooltip = "Not up to date"
+            elif state == ABCState.OutOfDate:
+                tooltip = "Out of date"
             else:
-                pixmap = QPixmap(asset_dir+abc.get_new_icon_name())
                 tooltip = "New"
+            pixmap = QPixmap(asset_dir+abc.get_icon_filename(state))
             icon_widget.setPixmap(pixmap)
             icon_widget.setToolTip(tooltip)
 
@@ -307,7 +315,7 @@ class ABCImport(QDialog):
                 action_btn = QPushButton("Update")
                 action_btn.setStyleSheet("margin:3px")
                 action_btn.clicked.connect(partial(self.__on_click_update_uvs_shaders, abc))
-                action_btn.setEnabled(not abc.check_up_to_date())
+                action_btn.setEnabled(not abc.is_up_to_date())
                 self.__ui_abcs_table.setCellWidget(row_index, 4, action_btn)
 
             row_index += 1
@@ -318,19 +326,23 @@ class ABCImport(QDialog):
             self.__ui_abcs_table.selectRow(row_index)
         self.__ui_abcs_table.setSelectionMode(QAbstractItemView.ExtendedSelection)
 
+    # Browse a new folder path
     def __browse_folder(self):
         dirname = ABCImport.__get_dir_name()
         folder_path = QtWidgets.QFileDialog.getExistingDirectory(self, "Select ABC Directory", dirname)
         if ABCImport.__is_correct_folder(folder_path) and folder_path != self.__folder_path:
             self.__ui_folder_path.setText(folder_path)
 
+    # Refresh ui on new selection
     def __on_selection_changed(self, *args, **kwarrgs):
         self.__retrieve_assets_in_scene()
         self.__refresh_ui()
 
+    # On check "update uvs and shaders"
     def __on_checked_update_uvs_shaders(self,state):
         self.__update_uvs_shaders = state == 2
 
+    # Get the new folder and refresh the ui on new folder
     def __on_folder_changed(self):
         retrieved_text = self.__ui_folder_path.text().strip("\\/")
         if self.__folder_path != retrieved_text:
@@ -338,21 +350,27 @@ class ABCImport(QDialog):
             self.__retrieve_abcs()
             self.__refresh_ui()
 
+    # On selection in the table changed
     def __on_abcs_selection_changed(self):
         self.__selected_abcs.clear()
         for selected_row in self.__ui_abcs_table.selectionModel().selectedRows():
             self.__selected_abcs.append(self.__ui_abcs_table.item(selected_row.row(), 1).data(Qt.UserRole))
         self.__refresh_btn()
 
+    # On import version changed for an abc
     def __on_version_combobox_changed(self, row_index, cb_index):
         abc = self.__ui_abcs_table.item(row_index, 1).data(Qt.UserRole)
         version_path = self.__ui_abcs_table.cellWidget(row_index, 3).model().item(cb_index).data(Qt.UserRole)
         abc.set_import_version(version_path)
 
+    # Update the abc on click
     def __on_click_update_uvs_shaders(self, abc):
         standin_node = abc.update()
         select(standin_node)
 
+    # Retrieve the abcs at the folder path.
+    # If parent folder specified, retrieves abc and abc_fur
+    # If only one, retrieves the one selected
     def __retrieve_abcs(self):
         self.__abcs.clear()
         if os.path.exists(self.__folder_path):
@@ -366,6 +384,7 @@ class ABCImport(QDialog):
                 self.__retrieve_assets(self.__folder_path, False)
         self.__retrieve_assets_in_scene()
 
+    # Auxiliary method to retrieve assets in the file architecture of the folder path
     def __retrieve_assets(self, folder_path, is_anim_folder):
         if os.path.isdir(folder_path):
             for asset_folder in os.listdir(folder_path):
@@ -387,27 +406,33 @@ class ABCImport(QDialog):
                         asset = ABCImportFur(asset_folder, anim_versions, self.__current_project_dir)
                     self.__abcs.append(asset)
 
+    # Retrieve assets in scene
+    # It can retrieve abc_fur having the abc file in the dso or
+    # it can retrieve abc having the abc file in the abc_layer
     def __retrieve_assets_in_scene(self):
         standins = ls(type="aiStandIn")
         standins_datas = {}
         for standin in standins:
             standin_node = listRelatives(standin, parent=True)[0]
-            abc_layer = standin_node.abc_layers.get()
             dso = standin.dso.get()
             added = False
+            # Check dso
             if dso is not None:
                 match_dso = re.match(r".*/(.*)/(.*)/([0-9]{4})/.*_[0-9]{2}_fur\.abc", dso, re.IGNORECASE)
                 if match_dso:
                     name = match_dso.groups()[1]+"_fur"
                     standins_datas[name] = (standin, match_dso.groups()[2])
                     added = True
-
-            if abc_layer is not None and not added:
-                abc_layer = abc_layer.replace("\\","/")
-                match_abc_layer = re.match(r".*/(.*)/(.*)/([0-9]{4})/.*_[0-9]{2}\.abc", abc_layer, re.IGNORECASE)
-                if match_abc_layer:
-                    name = match_abc_layer.groups()[1]
-                    standins_datas[name] = (standin, match_abc_layer.groups()[2])
+            if not added:
+                # Check abc_layer
+                abc_layer = standin_node.abc_layers.get()
+                if abc_layer is not None:
+                    abc_layer = abc_layer.replace("\\","/")
+                    match_abc_layer = re.match(r".*/(.*)/(.*)/([0-9]{4})/.*_[0-9]{2}\.abc", abc_layer, re.IGNORECASE)
+                    if match_abc_layer:
+                        name = match_abc_layer.groups()[1]
+                        standins_datas[name] = (standin, match_abc_layer.groups()[2])
+        # Make the correspondence between abcs in file architecture and abcs in scene
         for abc in self.__abcs:
             abc_name = abc.get_name()
             if abc_name in standins_datas.keys():
@@ -417,6 +442,7 @@ class ABCImport(QDialog):
                 abc.set_actual_standin(None)
                 abc.set_actual_version(None)
 
+    # Import the selected abcs
     def __import_update_selected_abcs(self):
         standin_nodes = []
         for abc in self.__selected_abcs:

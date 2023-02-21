@@ -1,10 +1,18 @@
 import os
 import re
 from abc import *
+from enum import Enum
 
 from pymel.core import *
 
 from utils import *
+
+
+# ABC State in the scene
+class ABCState(Enum):
+    UpToDate = 0
+    OutOfDate = 1
+    New = 2
 
 
 class ABCImportAsset(ABC):
@@ -16,52 +24,61 @@ class ABCImportAsset(ABC):
         self._actual_version = None
         self._actual_standin = None
 
-    def get_new_icon_name(self):
-        return "new.png"
+    # Get icon filename according to the state
+    def get_icon_filename(self, state):
+        if state == ABCState.UpToDate:
+            return "valid.png"
+        elif state == ABCState.OutOfDate:
+            return "warning.png"
+        else:
+            return "new.png"
 
-    def get_valid_icon_name(self):
-        return "valid.png"
-
-    def get_warning_icon_name(self):
-        return "warning.png"
-
+    # Getter of the name
     def get_name(self):
         return self._name
 
+    # Getter of the versions
     def get_versions(self):
         return self.__versions
 
+    # Setter of the current import version
     def set_import_version(self, version_path):
         self._import_version = version_path
 
+    # Getter of the current import version
     def get_import_version(self):
         return self._import_version
 
+    # Setter of the actual version
     def set_actual_version(self, version_path):
         self._actual_version = version_path
 
-    def has_uv_shaders_up_to_date(self):
-        pass
-
-    def set_actual_standin(self, standin):
-        self._actual_standin = standin
-
+    # Getter of the actual version
     def get_actual_version(self):
         return self._actual_version
 
+    # Setter of the actual Standin
+    def set_actual_standin(self, standin):
+        self._actual_standin = standin
+
+    # Import the abc in the scene
     @abstractmethod
     def import_update_abc(self, do_update_uvs_shaders):
         pass
 
+    # Update the shader and uvs of the abc
+    @abstractmethod
     def update(self):
         pass
 
+    # Getter of whether the abc has his uvs and shaders up to date
     @abstractmethod
-    def check_up_to_date(self):
+    def is_up_to_date(self):
         pass
 
 
 class ABCImportAnim(ABCImportAsset):
+    # Getter of the mod files of the anim
     def __get_mod_files(self):
         abc_char_name = self._name[:-len(self._name.split("_")[-1]) - 1]
         assets_folder = os.path.join(self._current_project_dir, "assets")
@@ -75,7 +92,8 @@ class ABCImportAnim(ABCImportAsset):
             mod_files = sorted(mod_files, reverse=True)
         return mod_files
 
-    def __check_mod_up_to_date(self):
+    # Getter of whether the abc has his uvs up to date
+    def __is_mod_up_to_date(self):
         # Test if mod is up to date
         mod_files = self.__get_mod_files()
         standin_node = listRelatives(self._actual_standin, parent=True)[0]
@@ -92,6 +110,7 @@ class ABCImportAnim(ABCImportAsset):
                 return False
         return True
 
+    # Update uvs
     def __update_mod(self):
         # MOD (UV)
         try:
@@ -102,6 +121,7 @@ class ABCImportAnim(ABCImportAsset):
         except:
             print_warning("No mod files found for " + self.get_name(), char_filler='-')
 
+    # Getter of the operator files of the anim
     def __get_operator_files(self):
         abc_char_name = self._name[:-len(self._name.split("_")[-1]) - 1]
         assets_folder = os.path.join(self._current_project_dir, "assets")
@@ -115,7 +135,8 @@ class ABCImportAnim(ABCImportAsset):
             operator_files = sorted(operator_files, reverse=True)
         return operator_files
 
-    def __check_operator_up_to_date(self):
+    # Getter of whether the abc has his shaders up to date
+    def __is_operator_up_to_date(self):
         # Test if operator is up to date
         operator_files = self.__get_operator_files()
         if len(operator_files) == 0:
@@ -135,6 +156,7 @@ class ABCImportAnim(ABCImportAsset):
                 return False
         return True
 
+    # Update shader
     def __update_operator(self):
         standin_node = listRelatives(self._actual_standin, parent=True)[0]
 
@@ -177,12 +199,12 @@ class ABCImportAnim(ABCImportAsset):
             self.update()
         return standin_node
 
-    def check_up_to_date(self):
+    def is_up_to_date(self):
         # Test if mod is up to date
-        mod_up_to_date = self.__check_mod_up_to_date()
+        mod_up_to_date = self.__is_mod_up_to_date()
         if not mod_up_to_date: return False
         # Test if operator is up to date
-        operator_up_to_date = self.__check_operator_up_to_date()
+        operator_up_to_date = self.__is_operator_up_to_date()
         if not operator_up_to_date: return False
         return True
 
@@ -193,18 +215,18 @@ class ABCImportAnim(ABCImportAsset):
 
 class ABCImportFur(ABCImportAsset):
 
-    def get_new_icon_name(self):
-        return "new_fur.png"
-
-    def get_valid_icon_name(self):
-        return "valid_fur.png"
-
-    def get_warning_icon_name(self):
-        return "warning_fur.png"
+    def get_icon_filename(self, state):
+        if state == ABCState.UpToDate:
+            return "valid_fur.png"
+        elif state == ABCState.OutOfDate:
+            return "warning_fur.png"
+        else:
+            return "new_fur.png"
 
     def get_name(self):
         return self._name + "_fur"
 
+    # Getter of the operator files of the fur
     def __get_operator_files(self):
         abc_char_name = self._name[:-len(self._name.split("_")[-1]) - 1]
         assets_folder = os.path.join(self._current_project_dir, "assets")
@@ -218,7 +240,8 @@ class ABCImportFur(ABCImportAsset):
             operator_files = sorted(operator_files, reverse=True)
         return operator_files
 
-    def __check_operator_up_to_date(self):
+    # Getter of whether the fur has his shaders up to date
+    def __is_operator_up_to_date(self):
         # Test if operator is up to date
         operator_files = self.__get_operator_files()
         if len(operator_files) == 0:
@@ -238,6 +261,7 @@ class ABCImportFur(ABCImportAsset):
                 return False
         return True
 
+    # Update shaders
     def __update_operator(self):
         standin_node = listRelatives(self._actual_standin, parent=True)[0]
 
@@ -283,6 +307,6 @@ class ABCImportFur(ABCImportAsset):
     def update(self):
         return self.__update_operator()
 
-    def check_up_to_date(self):
+    def is_up_to_date(self):
         # Test if operator is up to date
-        return self.__check_operator_up_to_date()
+        return self.__is_operator_up_to_date()
