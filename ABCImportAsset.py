@@ -195,15 +195,21 @@ class ABCImportAnim(ABCImportAsset):
         standin_node.mode.set(6)
         standin_node.abc_layers.set(abc_filepath)
 
+        light_filename = self.get_name() + "_light.ma"
+        light_filepath = os.path.join(self._import_version, light_filename)
+
+        if os.path.exists(light_filepath):
+            importFile(light_filepath)
+
         if is_import or do_update_uvs_shaders:
             self.update()
         return standin_node
 
     def is_up_to_date(self):
-        # Test if mod is up to date
+        # Test if mod is up-to-date
         mod_up_to_date = self.__is_mod_up_to_date()
         if not mod_up_to_date: return False
-        # Test if operator is up to date
+        # Test if operator is up-to-date
         operator_up_to_date = self.__is_operator_up_to_date()
         if not operator_up_to_date: return False
         return True
