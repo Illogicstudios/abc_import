@@ -2,6 +2,8 @@
 
 ABC Import is a tool to import ABCs with versioning.
 
+It pairs up with the ABC Export tool : https://github.com/Illogicstudios/abc_export
+
 ## How to install
 
 You will need some files that several Illogic tools need. You can get them via this link :
@@ -19,10 +21,6 @@ if __name__ == '__main__':
 ## Features
 
 ### Retrieve Anims and Furs
-
-ABC Export is a tool to export abc with versioning. It pairs up with the ABC Import.
-
-ABC Export : https://github.com/Illogicstudios/abc_export
 
 <div align="center">
   <span>
