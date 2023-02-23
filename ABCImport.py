@@ -163,7 +163,9 @@ class ABCImport(QDialog):
         self.resize(self.__ui_width, self.__ui_height)
         self.move(self.__ui_pos)
 
-        browse_icon_path = os.path.dirname(__file__) + "/assets/browse.png"
+        asset_dir = os.path.join(os.path.dirname(__file__), "assets")
+        browse_icon_path = os.path.join(asset_dir, "browse.png")
+        import_icon_path = os.path.join(asset_dir, "import.png")
 
         # Main Layout
         main_lyt = QVBoxLayout()
@@ -178,12 +180,22 @@ class ABCImport(QDialog):
         self.__ui_folder_path.setFixedHeight(27)
         self.__ui_folder_path.textChanged.connect(self.__on_folder_changed)
         folder_lyt.addWidget(self.__ui_folder_path)
+
         browse_btn = QPushButton()
         browse_btn.setIconSize(QtCore.QSize(18, 18))
         browse_btn.setFixedSize(QtCore.QSize(24, 24))
         browse_btn.setIcon(QIcon(QPixmap(browse_icon_path)))
         browse_btn.clicked.connect(partial(self.__browse_folder))
+        browse_btn.setToolTip("Browse a folder of ABCS")
         folder_lyt.addWidget(browse_btn)
+
+        import_btn = QPushButton()
+        import_btn.setIconSize(QtCore.QSize(18, 18))
+        import_btn.setFixedSize(QtCore.QSize(24, 24))
+        import_btn.setIcon(QIcon(QPixmap(import_icon_path)))
+        import_btn.clicked.connect(partial(self.__browse_import_abc_file))
+        import_btn.setToolTip("Browse an abc and import it")
+        folder_lyt.addWidget(import_btn)
 
         # Asset Table
         self.__ui_abcs_table = QTableWidget(0, 5)
@@ -207,7 +219,7 @@ class ABCImport(QDialog):
         self.__ui_update_uvs_shaders = QCheckBox("Update UVs and Shaders")
         self.__ui_update_uvs_shaders.setChecked(self.__update_uvs_shaders)
         self.__ui_update_uvs_shaders.stateChanged.connect(self.__on_checked_update_uvs_shaders)
-        main_lyt.addWidget(self.__ui_update_uvs_shaders,0 ,Qt.AlignHCenter)
+        main_lyt.addWidget(self.__ui_update_uvs_shaders, 0, Qt.AlignHCenter)
 
         # Submit Import button
         self.__ui_import_btn = QPushButton("Import or Update selection")
@@ -247,7 +259,7 @@ class ABCImport(QDialog):
             # Get model data
             name = abc.get_name()
             anim_versions = abc.get_versions()
-            anim_import_version = abc.get_import_version()
+            anim_import_version = abc.get_import_path()
             anim_actual_version = abc.get_actual_version()
 
             self.__ui_abcs_table.insertRow(row_index)
@@ -274,7 +286,7 @@ class ABCImport(QDialog):
                 tooltip = "Out of date"
             else:
                 tooltip = "New"
-            pixmap = QPixmap(asset_dir+abc.get_icon_filename(state))
+            pixmap = QPixmap(asset_dir + abc.get_icon_filename(state))
             icon_widget.setPixmap(pixmap)
             icon_widget.setToolTip(tooltip)
 
@@ -334,13 +346,27 @@ class ABCImport(QDialog):
         if ABCImport.__is_correct_folder(folder_path) and folder_path != self.__folder_path:
             self.__ui_folder_path.setText(folder_path)
 
+    # Browse an abc file and import it
+    def __browse_import_abc_file(self):
+        dirname = ABCImport.__get_dir_name()
+        file_path = QtWidgets.QFileDialog.getOpenFileName(self, "Select ABC File to Import", dirname, "ABC (*.abc)")[0]
+        match = re.match(r"^.*[/\\](?:(.*)(?:_[a-zA-Z]+)|(.*))\.abc$", file_path)
+        if match:
+            if match.group(1) is None:
+                asset = ABCImportAnim(match.group(2), self.__current_project_dir)
+            else:
+                asset = ABCImportFur(match.group(1), self.__current_project_dir)
+            self.__retrieve_alone_asset_in_scene(asset)
+            asset.set_import_path(os.path.dirname(file_path))
+            select(asset.import_update_abc(True))
+
     # Refresh ui on new selection
     def __on_selection_changed(self, *args, **kwarrgs):
         self.__retrieve_assets_in_scene()
         self.__refresh_ui()
 
     # On check "update uvs and shaders"
-    def __on_checked_update_uvs_shaders(self,state):
+    def __on_checked_update_uvs_shaders(self, state):
         self.__update_uvs_shaders = state == 2
 
     # Get the new folder and refresh the ui on new folder
@@ -362,7 +388,7 @@ class ABCImport(QDialog):
     def __on_version_combobox_changed(self, row_index, cb_index):
         abc = self.__ui_abcs_table.item(row_index, 1).data(Qt.UserRole)
         version_path = self.__ui_abcs_table.cellWidget(row_index, 3).model().item(cb_index).data(Qt.UserRole)
-        abc.set_import_version(version_path)
+        abc.set_import_path(version_path)
 
     # Update the abc on click
     def __on_click_update_uvs_shaders(self, abc):
@@ -402,10 +428,34 @@ class ABCImport(QDialog):
                             if test_file_abc in os.listdir(version_folder_path):
                                 anim_versions.append(version_folder_path)
                     if is_anim_folder:
-                        asset = ABCImportAnim(asset_folder, anim_versions, self.__current_project_dir)
+                        asset = ABCImportAnim(asset_folder, self.__current_project_dir, anim_versions)
                     else:
-                        asset = ABCImportFur(asset_folder, anim_versions, self.__current_project_dir)
+                        asset = ABCImportFur(asset_folder, self.__current_project_dir, anim_versions)
                     self.__abcs.append(asset)
+
+    # Retrieve one alone asset in scene
+    # It can retrieve abc_fur having the abc file in the dso or
+    # it can retrieve abc having the abc file in the abc_layer
+    def __retrieve_alone_asset_in_scene(self, abc):
+        standins = ls(type="aiStandIn")
+        abc_name = abc.get_name()
+        for standin in standins:
+            standin_node = listRelatives(standin, parent=True)[0]
+            dso = standin.dso.get()
+            # Check dso
+            if dso is not None:
+                match_dso = re.match(r".*[\\/](.*_fur)\.abc", dso, re.IGNORECASE)
+                if match_dso and match_dso.group(1) == abc_name:
+                    abc.set_actual_standin(standin)
+                    return
+            # Check abc_layer
+            abc_layer = standin_node.abc_layers.get()
+            if abc_layer is not None:
+                abc_layer = abc_layer.replace("\\", "/")
+                match_abc_layer = re.match(r".*[\\/](.*)\.abc", abc_layer, re.IGNORECASE)
+                if match_abc_layer and match_abc_layer.group(1) == abc_name:
+                    abc.set_actual_standin(standin)
+                    return
 
     # Retrieve assets in scene
     # It can retrieve abc_fur having the abc file in the dso or
@@ -413,26 +463,30 @@ class ABCImport(QDialog):
     def __retrieve_assets_in_scene(self):
         standins = ls(type="aiStandIn")
         standins_datas = {}
+        if len(self.__abcs) == 0:
+            return
         for standin in standins:
             standin_node = listRelatives(standin, parent=True)[0]
             dso = standin.dso.get()
             added = False
             # Check dso
             if dso is not None:
-                match_dso = re.match(r".*/(.*)/(.*)/([0-9]{4})/.*_[0-9]{2}_fur\.abc", dso, re.IGNORECASE)
+                match_dso = re.match(r".*/(.*)/(?:([0-9]{4})/)?.*_[0-9]{2}_fur\.abc", dso, re.IGNORECASE)
                 if match_dso:
-                    name = match_dso.groups()[1]+"_fur"
-                    standins_datas[name] = (standin, match_dso.groups()[2])
+                    print(match_dso.groups())
+                    name = match_dso.group(1) + "_fur"
+                    standins_datas[name] = (standin, match_dso.group(2))
                     added = True
             if not added:
                 # Check abc_layer
                 abc_layer = standin_node.abc_layers.get()
                 if abc_layer is not None:
-                    abc_layer = abc_layer.replace("\\","/")
-                    match_abc_layer = re.match(r".*/(.*)/(.*)/([0-9]{4})/.*_[0-9]{2}\.abc", abc_layer, re.IGNORECASE)
+                    abc_layer = abc_layer.replace("\\", "/")
+                    match_abc_layer = re.match(r".*/(.*)/(?:([0-9]{4})/)?.*_[0-9]{2}\.abc", abc_layer, re.IGNORECASE)
                     if match_abc_layer:
-                        name = match_abc_layer.groups()[1]
-                        standins_datas[name] = (standin, match_abc_layer.groups()[2])
+                        print(match_abc_layer.groups())
+                        name = match_abc_layer.group(1)
+                        standins_datas[name] = (standin, match_abc_layer.group(2))
         # Make the correspondence between abcs in file architecture and abcs in scene
         for abc in self.__abcs:
             abc_name = abc.get_name()

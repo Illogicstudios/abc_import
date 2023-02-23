@@ -16,11 +16,13 @@ class ABCState(Enum):
 
 
 class ABCImportAsset(ABC):
-    def __init__(self, name, versions, current_project_dir):
+    def __init__(self, name, current_project_dir, versions=None):
+        if versions is None:
+            versions = []
         self._name = name
         self.__versions = sorted(versions, reverse=True)
         self._current_project_dir = current_project_dir
-        self._import_version = self.__versions[0] if len(self.__versions) > 0 else None
+        self._import_path = self.__versions[0] if len(self.__versions) > 0 else None
         self._actual_version = None
         self._actual_standin = None
 
@@ -42,12 +44,12 @@ class ABCImportAsset(ABC):
         return self.__versions
 
     # Setter of the current import version
-    def set_import_version(self, version_path):
-        self._import_version = version_path
+    def set_import_path(self, path):
+        self._import_path = path
 
     # Getter of the current import version
-    def get_import_version(self):
-        return self._import_version
+    def get_import_path(self):
+        return self._import_path
 
     # Setter of the actual version
     def set_actual_version(self, version_path):
@@ -160,12 +162,13 @@ class ABCImportAnim(ABCImportAsset):
     def __update_operator(self):
         standin_node = listRelatives(self._actual_standin, parent=True)[0]
 
+        name = self.get_name()
         # OPERATOR (SHADER)
         try:
             operator_files = self.__get_operator_files()
             operator_file_path = operator_files[0]
         except:
-            print_warning("No operator files found for " + self.get_name(), char_filler='-')
+            print_warning("No operator files found for " + name, char_filler='-')
             return standin_node
 
         include_graphs = listConnections(self._actual_standin, type="aiIncludeGraph")
@@ -173,7 +176,7 @@ class ABCImportAnim(ABCImportAsset):
         if len(include_graphs) > 0:
             set_shader = include_graphs[0]
         else:
-            set_shader = createNode("aiIncludeGraph", n="aiIncludeGraph_" + self.get_name())
+            set_shader = createNode("aiIncludeGraph", n="aiIncludeGraph_" + name)
         set_shader.filename.set(operator_file_path)
         set_shader.out >> standin_node.operators[0]
         return standin_node
@@ -181,25 +184,35 @@ class ABCImportAnim(ABCImportAsset):
     def import_update_abc(self, do_update_uvs_shaders):
         is_import = self._actual_standin is None
 
+        name = self.get_name()
         # If import we create the standin
         if is_import:
-            self._actual_standin = createNode("aiStandIn", n="shape_" + self.get_name())
+            self._actual_standin = createNode("aiStandIn", n="shape_" + name)
             standin_node = listRelatives(self._actual_standin, parent=True)[0]
-            standin_node = rename(standin_node, self.get_name())
+            standin_node = rename(standin_node, name)
         else:
             standin_node = listRelatives(self._actual_standin, parent=True)[0]
 
-        abc_filename = self.get_name() + ".abc"
-        abc_filepath = os.path.join(self._import_version, abc_filename)
+        abc_filename = name + ".abc"
+        abc_filepath = os.path.join(self._import_path, abc_filename)
         standin_node.useFrameExtension.set(True)
         standin_node.mode.set(6)
         standin_node.abc_layers.set(abc_filepath)
 
-        light_filename = self.get_name() + "_light.ma"
-        light_filepath = os.path.join(self._import_version, light_filename)
+        light_filename = name + "_light.ma"
+        light_filepath = os.path.join(self._import_path, light_filename)
 
+        # Update anim lights or create one
         if os.path.exists(light_filepath):
-            importFile(light_filepath)
+            found = False
+            for ref in listReferences():
+                match = re.match(r".*[\\/]"+name+"_light\.m[ab]", ref.unresolvedPath())
+                if match:
+                    ref.replaceWith(light_filepath)
+                    found = True
+                    break
+            if not found:
+                createReference(light_filepath, defaultNamespace=True)
 
         if is_import or do_update_uvs_shaders:
             self.update()
@@ -271,39 +284,44 @@ class ABCImportFur(ABCImportAsset):
     def __update_operator(self):
         standin_node = listRelatives(self._actual_standin, parent=True)[0]
 
+        name = self.get_name()
         # OPERATOR (SHADER)
         try:
             operator_files = self.__get_operator_files()
             operator_file_path = operator_files[0]
         except:
-            print_warning("No operator files found for " + self.get_name(), char_filler='-')
+            print_warning("No operator files found for " + name, char_filler='-')
             return standin_node
-
         include_graphs = listConnections(self._actual_standin, type="aiIncludeGraph")
         # If include graph exists we retrieve it instead of creating one
         if len(include_graphs) > 0:
             set_shader = include_graphs[0]
         else:
-            set_shader = createNode("aiIncludeGraph", n="aiIncludeGraph_" + self.get_name())
+            set_shader = createNode("aiIncludeGraph", n="aiIncludeGraph_" + name)
         set_shader.filename.set(operator_file_path)
         set_shader.out >> standin_node.operators[0]
         return standin_node
-
+    # `	"ch_ravenA_00_fur"
+    # `	ch_ravenA_00_fur
+    # `	shape_ch_ravenA_00_fur
+    # I:/battlestar_2206/shots/turn/panda/abc_fur/panda_fur.abc\panda_fur.abc
+    # I:/battlestar_2206/shots/turn/panda/abc_fur/ch_panda_00/0001/ch_panda_00_fur.abc
     def import_update_abc(self, do_update_uvs_shaders):
         is_import = self._actual_standin is None
 
+        name = self.get_name()
         # If import we create the standin
         if is_import:
-            self._actual_standin = createNode("aiStandIn", n="shape_" + self.get_name())
+            self._actual_standin = createNode("aiStandIn", n="shape_" + name)
             standin_node = listRelatives(self._actual_standin, parent=True)[0]
-            standin_node = rename(standin_node, self.get_name())
+            standin_node = rename(standin_node, name)
         else:
             standin_node = listRelatives(self._actual_standin, parent=True)[0]
 
         standin_node.useFrameExtension.set(True)
         standin_node.mode.set(4)
-        abc_filename = self.get_name() + ".abc"
-        abc_filepath = os.path.join(self._import_version, abc_filename)
+        abc_filename = name + ".abc"
+        abc_filepath = os.path.join(self._import_path, abc_filename)
         standin_node.dso.set(abc_filepath)
 
         if is_import or do_update_uvs_shaders:
