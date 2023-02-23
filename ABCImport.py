@@ -471,7 +471,7 @@ class ABCImport(QDialog):
             added = False
             # Check dso
             if dso is not None:
-                match_dso = re.match(r".*/(.*)/(?:([0-9]{4})/)?.*_[0-9]{2}_fur\.abc", dso, re.IGNORECASE)
+                match_dso = re.match(r".*/(.*)/([0-9]{4})/.*_[0-9]{2}_fur\.abc", dso, re.IGNORECASE)
                 if match_dso:
                     print(match_dso.groups())
                     name = match_dso.group(1) + "_fur"
@@ -482,7 +482,7 @@ class ABCImport(QDialog):
                 abc_layer = standin_node.abc_layers.get()
                 if abc_layer is not None:
                     abc_layer = abc_layer.replace("\\", "/")
-                    match_abc_layer = re.match(r".*/(.*)/(?:([0-9]{4})/)?.*_[0-9]{2}\.abc", abc_layer, re.IGNORECASE)
+                    match_abc_layer = re.match(r".*/(.*)/([0-9]{4})/.*_[0-9]{2}\.abc", abc_layer, re.IGNORECASE)
                     if match_abc_layer:
                         print(match_abc_layer.groups())
                         name = match_abc_layer.group(1)
