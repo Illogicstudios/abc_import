@@ -78,6 +78,21 @@ class ABCImportAsset(ABC):
     def is_up_to_date(self):
         pass
 
+    @staticmethod
+    def _configure_standin(standin_node):
+        current_unit = currentUnit(time=True, query=True)
+        unit_to_fps = {
+            "game": 15,
+            "film": 24,
+            "pal": 25,
+            "ntsc": 30,
+            "show": 48,
+            "palf": 50,
+            "ntscf": 60,
+        }
+        standin_node.abcFPS.set(unit_to_fps[current_unit] if current_unit in unit_to_fps else 24)
+        standin_node.useFrameExtension.set(True)
+
 
 class ABCImportAnim(ABCImportAsset):
     # Getter of the mod files of the anim
@@ -195,9 +210,9 @@ class ABCImportAnim(ABCImportAsset):
 
         abc_filename = name + ".abc"
         abc_filepath = os.path.join(self._import_path, abc_filename)
-        standin_node.useFrameExtension.set(True)
         standin_node.mode.set(6)
         standin_node.abc_layers.set(abc_filepath)
+        ABCImportAsset._configure_standin(standin_node)
 
         light_filename = name + "_light.ma"
         light_filepath = os.path.join(self._import_path, light_filename)
@@ -206,7 +221,7 @@ class ABCImportAnim(ABCImportAsset):
         if os.path.exists(light_filepath):
             found = False
             for ref in listReferences():
-                match = re.match(r".*[\\/]"+name+"_light\.m[ab]", ref.unresolvedPath())
+                match = re.match(r".*[\\/]" + name + "_light\.m[ab]", ref.unresolvedPath())
                 if match:
                     ref.replaceWith(light_filepath)
                     found = True
@@ -301,6 +316,7 @@ class ABCImportFur(ABCImportAsset):
         set_shader.filename.set(operator_file_path)
         set_shader.out >> standin_node.operators[0]
         return standin_node
+
     # `	"ch_ravenA_00_fur"
     # `	ch_ravenA_00_fur
     # `	shape_ch_ravenA_00_fur
@@ -314,7 +330,7 @@ class ABCImportFur(ABCImportAsset):
         standin_node = None
 
         for f in os.listdir(self._import_path):
-            if re.match(r""+name+r"(?:\.[0-9]+)?\.abc",f):
+            if re.match(r"" + name + r"(?:\.[0-9]+)?\.abc", f):
                 dso = f
                 break
 
@@ -327,9 +343,9 @@ class ABCImportFur(ABCImportAsset):
             else:
                 standin_node = listRelatives(self._actual_standin, parent=True)[0]
 
-            standin_node.useFrameExtension.set(True)
+            standin_node.dso.set(os.path.join(self._import_path, dso))
             standin_node.mode.set(4)
-            standin_node.dso.set(os.path.join(self._import_path,dso))
+            ABCImportAsset._configure_standin(standin_node)
 
             if is_import or do_update_uvs_shaders:
                 self.update()
