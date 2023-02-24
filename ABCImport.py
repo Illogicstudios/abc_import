@@ -252,6 +252,7 @@ class ABCImport(QDialog):
 
         asset_dir = os.path.dirname(__file__) + "/assets/"
 
+
         self.__ui_abcs_table.setRowCount(0)
         row_index = 0
         selected_rows = []
@@ -350,7 +351,7 @@ class ABCImport(QDialog):
     def __browse_import_abc_file(self):
         dirname = ABCImport.__get_dir_name()
         file_path = QtWidgets.QFileDialog.getOpenFileName(self, "Select ABC File to Import", dirname, "ABC (*.abc)")[0]
-        match = re.match(r"^.*[/\\](?:(.*)(?:_[a-zA-Z]+)|(.*))\.abc$", file_path)
+        match = re.match(r"^.*[/\\](?:(.*)(?:_[a-zA-Z]+(?:\.[0-9]+)?)|(.*))\.abc$", file_path)
         if match:
             if match.group(1) is None:
                 asset = ABCImportAnim(match.group(2), self.__current_project_dir)
@@ -413,6 +414,7 @@ class ABCImport(QDialog):
 
     # Auxiliary method to retrieve assets in the file architecture of the folder path
     def __retrieve_assets(self, folder_path, is_anim_folder):
+        folder_path = folder_path.replace("\\","/")
         if os.path.isdir(folder_path):
             for asset_folder in os.listdir(folder_path):
                 asset_folder_path = os.path.join(folder_path, asset_folder)
@@ -420,18 +422,24 @@ class ABCImport(QDialog):
                 if os.path.isdir(asset_folder_path) and asset_folder[0:2] == "ch":
                     for version_folder in os.listdir(asset_folder_path):
                         version_folder_path = os.path.join(asset_folder_path, version_folder)
-                        if is_anim_folder:
-                            test_file_abc = asset_folder + ".abc"
-                        else:
-                            test_file_abc = asset_folder + "_fur.abc"
                         if os.path.isdir(version_folder_path):
-                            if test_file_abc in os.listdir(version_folder_path):
-                                anim_versions.append(version_folder_path)
-                    if is_anim_folder:
-                        asset = ABCImportAnim(asset_folder, self.__current_project_dir, anim_versions)
-                    else:
-                        asset = ABCImportFur(asset_folder, self.__current_project_dir, anim_versions)
-                    self.__abcs.append(asset)
+                            for abc in os.listdir(version_folder_path):
+                                add = False
+                                if is_anim_folder:
+                                    if asset_folder + ".abc" == abc:
+                                        add = True
+                                else:
+                                    if re.match(r""+asset_folder+r"_fur(?:\.[0-9]+)?\.abc", abc):
+                                        add = True
+                                if add :
+                                    anim_versions.append(version_folder_path)
+                                    break
+                    if len(anim_versions) > 0:
+                        if is_anim_folder:
+                            asset = ABCImportAnim(asset_folder, self.__current_project_dir, anim_versions)
+                        else:
+                            asset = ABCImportFur(asset_folder, self.__current_project_dir, anim_versions)
+                        self.__abcs.append(asset)
 
     # Retrieve one alone asset in scene
     # It can retrieve abc_fur having the abc file in the dso or
@@ -444,7 +452,7 @@ class ABCImport(QDialog):
             dso = standin.dso.get()
             # Check dso
             if dso is not None:
-                match_dso = re.match(r".*[\\/](.*_fur)\.abc", dso, re.IGNORECASE)
+                match_dso = re.match(r".*[\\/](.*_fur)(?:\.[0-9]+)?\.abc", dso, re.IGNORECASE)
                 if match_dso and match_dso.group(1) == abc_name:
                     abc.set_actual_standin(standin)
                     return
@@ -471,9 +479,8 @@ class ABCImport(QDialog):
             added = False
             # Check dso
             if dso is not None:
-                match_dso = re.match(r".*/(.*)/([0-9]{4})/.*_[0-9]{2}_fur\.abc", dso, re.IGNORECASE)
+                match_dso = re.match(r".*/(.*)/([0-9]{4})/.*_[0-9]{2}_fur(?:\.[0-9]+)?\.abc", dso, re.IGNORECASE)
                 if match_dso:
-                    print(match_dso.groups())
                     name = match_dso.group(1) + "_fur"
                     standins_datas[name] = (standin, match_dso.group(2))
                     added = True
@@ -484,7 +491,6 @@ class ABCImport(QDialog):
                     abc_layer = abc_layer.replace("\\", "/")
                     match_abc_layer = re.match(r".*/(.*)/([0-9]{4})/.*_[0-9]{2}\.abc", abc_layer, re.IGNORECASE)
                     if match_abc_layer:
-                        print(match_abc_layer.groups())
                         name = match_abc_layer.group(1)
                         standins_datas[name] = (standin, match_abc_layer.group(2))
         # Make the correspondence between abcs in file architecture and abcs in scene

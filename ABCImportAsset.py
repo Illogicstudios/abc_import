@@ -310,22 +310,29 @@ class ABCImportFur(ABCImportAsset):
         is_import = self._actual_standin is None
 
         name = self.get_name()
-        # If import we create the standin
-        if is_import:
-            self._actual_standin = createNode("aiStandIn", n="shape_" + name)
-            standin_node = listRelatives(self._actual_standin, parent=True)[0]
-            standin_node = rename(standin_node, name)
-        else:
-            standin_node = listRelatives(self._actual_standin, parent=True)[0]
+        dso = None
+        standin_node = None
 
-        standin_node.useFrameExtension.set(True)
-        standin_node.mode.set(4)
-        abc_filename = name + ".abc"
-        abc_filepath = os.path.join(self._import_path, abc_filename)
-        standin_node.dso.set(abc_filepath)
+        for f in os.listdir(self._import_path):
+            if re.match(r""+name+r"(?:\.[0-9]+)?\.abc",f):
+                dso = f
+                break
 
-        if is_import or do_update_uvs_shaders:
-            self.update()
+        if dso is not None:
+            # If import we create the standin
+            if is_import:
+                self._actual_standin = createNode("aiStandIn", n="shape_" + name)
+                standin_node = listRelatives(self._actual_standin, parent=True)[0]
+                standin_node = rename(standin_node, name)
+            else:
+                standin_node = listRelatives(self._actual_standin, parent=True)[0]
+
+            standin_node.useFrameExtension.set(True)
+            standin_node.mode.set(4)
+            standin_node.dso.set(os.path.join(self._import_path,dso))
+
+            if is_import or do_update_uvs_shaders:
+                self.update()
         return standin_node
 
     def update(self):
