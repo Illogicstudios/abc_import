@@ -9,13 +9,6 @@ It pairs up with the ABC Export tool : https://github.com/Illogicstudios/abc_exp
 You will need some files that several Illogic tools need. You can get them via this link :
 https://github.com/Illogicstudios/common
 
-You must specify the correct path of the installation folder in the template_main.py file :
-```python
-if __name__ == '__main__':
-    # TODO specify the right path
-    install_dir = 'PATH/TO/abc_import'
-    # [...]
-```
 ---
 
 ## Features
