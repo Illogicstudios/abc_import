@@ -26,7 +26,7 @@ https://github.com/Illogicstudios/common
 
 <div align="center">
   <span>
-    <img src="https://user-images.githubusercontent.com/94440879/220320877-7e1d392a-8c96-4b58-9a08-ce97dc6f7c4c.png" width=60%>
+    <img src="https://github.com/Illogicstudios/look_loader/assets/117286626/022e7f04-1777-452b-9724-eff0d4db6161" width=60%>
   </span>
   <p weight="bold">You can retrieve the abc anim and the abc fur from a folder</p>
   <br/>
@@ -38,7 +38,7 @@ In the User interface you can visualize the available versions and if the assets
 
 <div align="center">
   <span>
-    <img src="https://user-images.githubusercontent.com/94440879/220321933-3446ffe5-19fd-43bb-90c3-50a0fa062539.png" width=60%>
+    <img src="https://github.com/Illogicstudios/look_loader/assets/117286626/b3bd4b9e-ed05-4b76-b16e-7ff251750ca7" width=60%>
   </span>
   <p weight="bold">States change when assets are already in the scene</p>
   <br/>
@@ -46,20 +46,8 @@ In the User interface you can visualize the available versions and if the assets
 
 ### Importing and Updating
 
-<div align="center">
-  <span>
-    <img src="https://user-images.githubusercontent.com/94440879/220323225-26d0028d-0456-4560-986b-65034b7d6f06.png" width=45%>
-  </span>
-  <span>
-    <img src="https://user-images.githubusercontent.com/94440879/220323284-f07ec8e0-4f87-41f7-8e42-ea8572495964.png" width=45%>
-  </span>
-  <p weight="bold">Updating the version of an abc</p>
-  <br/>
-</div>
-
 By selecting a row and clicking the button "Import or Update selection" the abc will be update or import to the version selected in the "Import version" of the abc.
 
-The "Update look" buttons updates the uvs and shaders of animations and shaders of furs independently of the import version.
+The "look" icons show if the looks and uvs are out of dates.
 
-The checkbox "Update UVs and Shaders" achieve the same goal that the "Update looks" buttons but at the import or update of the abc.
-
+The checkbox "Set last Looks" updates the looks to the last looks and uvs.

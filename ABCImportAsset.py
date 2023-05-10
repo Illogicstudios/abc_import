@@ -71,7 +71,11 @@ class ABCImportAsset(ABC):
     def set_actual_standin(self, standin):
         self._actual_standin = standin
         if self._actual_standin is not None:
-            self._look_standin_obj = self._look_factory.generate(self._actual_standin)
+            try:
+                self._look_standin_obj = self._look_factory.generate(self._actual_standin)
+            except:
+                print_warning("Error while retrieving Looks files of " + self._name, char_filler='-')
+                return
 
     # Import the abc in the scene
     @abstractmethod
@@ -85,6 +89,8 @@ class ABCImportAsset(ABC):
 
     # Getter of whether the abc has his uv and looks up to date
     def is_look_up_to_date(self):
+        if self._look_standin_obj is None:
+            return False
         return self._look_standin_obj.is_looks_up_to_date() and self._look_standin_obj.is_uv_up_to_date()
 
     @staticmethod
@@ -108,7 +114,11 @@ class ABCImportAnim(ABCImportAsset):
         is_import = self._actual_standin is None
 
         char_name = self._get_char_name()
-        last_uv = LookAsset.get_uvs(char_name, self._current_project_dir)[0][1]
+        try:
+            last_uv = LookAsset.get_uvs(char_name, self._current_project_dir)[0][1]
+        except:
+            print_warning("Error while retrieving UV files of "+char_name, char_filler='-')
+            return
 
         name = self.get_name()
 
