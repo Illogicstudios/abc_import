@@ -2,7 +2,8 @@
 
 ABC Import is a tool to import ABCs with versioning.
 
-It pairs up with the ABC Export tool : https://github.com/Illogicstudios/abc_export
+It pairs up with the ABC Export tool (https://github.com/Illogicstudios/abc_export)
+and it requires the Look Loader tool (https://github.com/Illogicstudios/look_loader)
 
 ## How to install
 
