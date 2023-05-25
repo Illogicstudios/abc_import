@@ -1,5 +1,7 @@
 import os
 import re
+import traceback
+
 from abc import *
 from enum import Enum
 
@@ -73,9 +75,11 @@ class ABCImportAsset(ABC):
         if self._actual_standin is not None:
             try:
                 self._look_standin_obj = self._look_factory.generate(self._actual_standin)
-            except:
+            except Exception as e:
                 print_warning("Error while retrieving Looks files of " + self._name, char_filler='-')
-                return
+                print(f'caught {type(e)}: e')
+                print(e)
+                traceback.print_exception(*sys.exc_info())
 
     # Import the abc in the scene
     @abstractmethod
@@ -116,9 +120,10 @@ class ABCImportAnim(ABCImportAsset):
         char_name = self._get_char_name()
         try:
             last_uv = LookAsset.get_uvs(char_name, self._current_project_dir)[0][1]
-        except:
-            print_warning("Error while retrieving UV files of "+char_name, char_filler='-')
-            return
+        except Exception as e:
+            print(f'caught {type(e)}: e')
+            print(e)
+            traceback.print_exception(*sys.exc_info())
 
         name = self.get_name()
 
